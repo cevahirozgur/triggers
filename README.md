@@ -1,155 +1,58 @@
 # triggers
 
-# How to create triggers on SQL and how to use triggers?
+### How to create triggers on SQL and how to use triggers?
 
-# Firstly, create a database and give it a name like TRG. Then create an ITEMS table and enter 1000 line record.
+![240_F_400609414_VYT4smbkyONjzb60buwMvO05oGFxeWT0](https://user-images.githubusercontent.com/89588465/228642497-d1ea56d5-ae9d-4ca9-b6af-5c089e3c21fb.jpg)
+
+### Firstly, create a database and give it a name like TRG. Then create an ITEMS table and enter 1000 line record.
+
+![image](https://user-images.githubusercontent.com/89588465/228642706-a682234c-2ae5-4f87-8290-21cc6b5c8135.png)
+
+![image](https://user-images.githubusercontent.com/89588465/228642829-187a84eb-02ad-4161-9b6e-965ea3c8e86f.png)
+
+![Untitled](https://user-images.githubusercontent.com/89588465/228643052-ac86632c-b79e-453b-8994-15413e898008.png)
 
 
-DECLARE @I AS INT=1
-WHILE @I<=1000
-BEGIN
-DECLARE @ITEMCODE AS VARCHAR(100)
-DECLARE @ITEMNAME AS VARCHAR(100)
-SET @ITEMCODE='ITEM000'+CONVERT(VARCHAR,@I)
-SET @ITEMNAME='MALZEME'+CONVERT(VARCHAR,@I)
+### Create a table named ITEMTRANSACTION for input/output operations. Then enter records (1000 line)
 
-INSERT INTO ITEMS (ITEMCODE,ITEMNAME)
-VALUES (@ITEMCODE,@ITEMNAME)
+![image](https://user-images.githubusercontent.com/89588465/228643209-e5228ede-2b17-4100-b9ea-2952223db43b.png)
 
-SET @I=@I+1
-END
+![image](https://user-images.githubusercontent.com/89588465/228643355-5861a3a4-c12d-4669-824e-b540b0014610.png)
 
-SELECT * FROM ITEMS
 
-# Create a table named ITEMTRANSACTION for input/output operations. Then enter records (1000 line)
+### Create a dataset with a sub query to view the stock movement in the ITEMS table according to the input and output in the ITEMTRANSACTION table.
 
-DECLARE @I AS INT=0
-WHILE @I<10000
-BEGIN
-DECLARE @ITEMID AS INT
-DECLARE @AMOUNT AS INT
-DECLARE @DATE AS DATETIME
-DECLARE @IOTYPE AS TINYINT
-DECLARE @RAND AS INT
+![image](https://user-images.githubusercontent.com/89588465/228643518-9035ed9f-550b-49ab-9745-1d88eb84536b.png)
 
-SET @ITEMID=CONVERT(INT,RAND()*1000)+1
-SET @AMOUNT=CONVERT(INT,RAND()*20)+1
-SET @RAND=CONVERT(INT,RAND()*365)
-SET @DATE=DATEADD(DAY,@RAND,'2021-01-01')
+![Untitled (1)](https://user-images.githubusercontent.com/89588465/228643593-9375fee6-5014-4b80-8a26-e9de33d336f3.png)
 
-IF RAND()<0.4
-	SET @IOTYPE=1
-ELSE
-	SET @IOTYPE=0
+### But writing this way is costly. We can find the cost of this operation to SQL Server by typing SET STATISTICS IO ON before SELECT:
 
-	SELECT @ITEMID,@AMOUNT,@DATE,@IOTYPE
+![image](https://user-images.githubusercontent.com/89588465/228643704-201797dd-c826-44a1-be9c-fbfd83a6d447.png)
 
-	INSERT INTO ITEMTRANSACTION(ITEMID,DATE_,AMOUNT,IOTYPE)
-	VALUES (@ITEMID,@DATE,@AMOUNT,@IOTYPE)
-SET @I=@I+1
-END
+### logical reads= 748 (in the other words, 748 page is reading)
 
-# Create a dataset with a sub query to view the stock movement in the ITEMS table according to the input and output in the ITEMTRANSACTION table.
+## NOW IT'S TRIGGER TIME !!!
 
-SELECT*, INAMOUNT-OUTAMOUNT STOCK FROM
-(
-SELECT *,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=0) INAMOUNT,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=1) OUTAMOUNT
-FROM ITEMS I
-
-) T
-
-# But writing this way is costly. We can find the cost of this operation to SQL Server by typing SET STATISTICS IO ON before SELECT:
-
-SET STATISTICS IO ON
-
-SELECT*, INAMOUNT-OUTAMOUNT STOCK FROM
-(
-SELECT *,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=0) INAMOUNT,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=1) OUTAMOUNT
-FROM ITEMS I
-
-) T
-
-# logical reads 748 yani 748 page
-
-# NOW IT'S TRIGGER TIME !!!
-
-#Firstly, create an ITEMSTOCK table. Enter records into this table but first clean the inside of the ITEMTRANSACTION table 
+### Firstly, create an ITEMSTOCK table. Enter records into this table but first clean the inside of the ITEMTRANSACTION table 
 
 TRUNCATE TABLE ITEMTRANSACTION 
 
-INSERT INTO ITEMSTOCK (ITEMID,AMOUNT)
+![image](https://user-images.githubusercontent.com/89588465/228644208-d424d2e2-a1ff-4f77-a527-ec75c7f71644.png)
 
-SELECT ID, INAMOUNT-OUTAMOUNT STOCK FROM
-(
-SELECT *,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=0) INAMOUNT,
-(SELECT SUM(AMOUNT) FROM ITEMTRANSACTION WHERE ITEMID=I.ID AND IOTYPE=1) OUTAMOUNT
-FROM ITEMS I
+![image](https://user-images.githubusercontent.com/89588465/228644314-7804e8b0-d5dd-438c-a426-c95625c9bbd6.png)
 
-) T     -- So we put 1000 rows of data in it but their AMOUNT's are null
+### Then CREATE TRIGGER (INSERTED TRIGGER)
 
+![image](https://user-images.githubusercontent.com/89588465/228645609-ebd0faf5-8f0b-4775-b99e-4158dce3a4ac.png)
 
-UPDATE ITEMSTOCK SET AMOUNT=00   --update inside
+### Every time we perform an INSERT operation, there will be a change first in ITEMTRANSACTION and then in ITEMSTOCK. 
 
-# Then CREATE TRIGGER (INSERTED TRIGGER)
+![image](https://user-images.githubusercontent.com/89588465/228645696-c0c9370d-9d1b-4d2e-9ce6-270b296886d1.png)
 
-CREATE TRIGGER TRG_ITEMSTOCK_UPDATE ON ITEMTRANSACTION 
-AFTER INSERT
-AS
-BEGIN
-DECLARE @ITEMID AS INT
-DECLARE @DATE AS DATETIME
-DECLARE @AMOUNT AS INT
-DECLARE @IOTYPE AS TINYINT
+### Run the code again, which will randomly enter 10,000 records into ITEMTRANSACTION at once.
 
-SELECT @ITEMID =ITEMID, @DATE=DATE_, @AMOUNT=AMOUNT, @IOTYPE=IOTYPE FROM inserted
-
-IF @IOTYPE=1  --ÇIKIŞ İŞLEMİ İSE
-	SET @AMOUNT = @AMOUNT*(-1)
-
-UPDATE ITEMSTOCK SET AMOUNT=AMOUNT+@AMOUNT WHERE ITEMID=@ITEMID
-
-END
-
-# Every time we perform an INSERT operation, there will be a change first in ITEMTRANSACTION and then in ITEMSTOCK. 
-
-INSERT INTO ITEMTRANSACTION (ITEMID,DATE_,AMOUNT,IOTYPE)
-VALUES (1, '2021-07-03', 10, 0)
-
-SELECT * FROM ITEMTRANSACTION
-SELECT * FROM ITEMSTOCK WHERE ITEMID=1
-
-# Run the code again, which will randomly enter 10,000 records into ITEMTRANSACTION at once.
-
-DECLARE @I AS INT=0
-WHILE @I<10000
-BEGIN
-DECLARE @ITEMID AS INT
-DECLARE @AMOUNT AS INT
-DECLARE @DATE AS DATETIME
-DECLARE @IOTYPE AS TINYINT
-DECLARE @RAND AS INT
-
-SET @ITEMID=CONVERT(INT,RAND()*1000)+1
-SET @AMOUNT=CONVERT(INT,RAND()*20)+1
-SET @RAND=CONVERT(INT,RAND()*365)
-SET @DATE=DATEADD(DAY,@RAND,'2021-01-01')
-
-IF RAND()<0.4
-	SET @IOTYPE=1
-ELSE
-	SET @IOTYPE=0
-
-	SELECT @ITEMID,@AMOUNT,@DATE,@IOTYPE
-
-	INSERT INTO ITEMTRANSACTION(ITEMID,DATE_,AMOUNT,IOTYPE)
-	VALUES (@ITEMID,@DATE,@AMOUNT,@IOTYPE)
-SET @I=@I+1
-END
+![image](https://user-images.githubusercontent.com/89588465/228645824-71e842ff-d303-4547-a9a6-69f5e6487150.png)
 
 # In the other words, ITEMSTOCK table will automatically update itself when an INSERT entry is made every cycle.
 
