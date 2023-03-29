@@ -2,6 +2,8 @@
 
 ### How to create triggers on SQL and how to use triggers?
 
+#### (This study about update tiggers)
+
 ![240_F_400609414_VYT4smbkyONjzb60buwMvO05oGFxeWT0](https://user-images.githubusercontent.com/89588465/228642497-d1ea56d5-ae9d-4ca9-b6af-5c089e3c21fb.jpg)
 
 ### Firstly, create a database and give it a name like TRG. Then create an ITEMS table and enter 1000 line record.
